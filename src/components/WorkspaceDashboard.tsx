@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, ArrowRight, Folder, Users, CheckSquare, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, ArrowRight, Folder, Users, CheckSquare } from 'lucide-react';
 import Link from 'next/link';
 import type { WorkspaceStats } from '@/lib/types';
 
@@ -89,7 +89,6 @@ export function WorkspaceDashboard() {
               <WorkspaceCard 
                 key={workspace.id} 
                 workspace={workspace} 
-                onDelete={(id) => setWorkspaces(workspaces.filter(w => w.id !== id))}
               />
             ))}
             
@@ -121,32 +120,8 @@ export function WorkspaceDashboard() {
   );
 }
 
-function WorkspaceCard({ workspace, onDelete }: { workspace: WorkspaceStats; onDelete: (id: string) => void }) {
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/workspaces/${workspace.id}`, { method: 'DELETE' });
-      if (res.ok) {
-        onDelete(workspace.id);
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Failed to delete workspace');
-      }
-    } catch {
-      alert('Failed to delete workspace');
-    } finally {
-      setDeleting(false);
-      setShowDeleteConfirm(false);
-    }
-  };
-  
+function WorkspaceCard({ workspace }: { workspace: WorkspaceStats }) {
   return (
-    <>
     <Link href={`/workspace/${workspace.slug}`}>
       <div className="bg-mc-bg-secondary border border-mc-border rounded-xl p-6 hover:border-mc-accent/50 transition-all hover:shadow-lg cursor-pointer group relative">
         <div className="flex items-start justify-between mb-4">
@@ -159,25 +134,10 @@ function WorkspaceCard({ workspace, onDelete }: { workspace: WorkspaceStats; onD
               <p className="text-sm text-mc-text-secondary">/{workspace.slug}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {workspace.id !== 'default' && (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowDeleteConfirm(true);
-                }}
-                className="p-1.5 rounded hover:bg-mc-accent-red/20 text-mc-text-secondary hover:text-mc-accent-red transition-colors opacity-0 group-hover:opacity-100"
-                title="Delete workspace"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
-            <ArrowRight className="w-5 h-5 text-mc-text-secondary group-hover:text-mc-accent transition-colors" />
-          </div>
+          <ArrowRight className="w-5 h-5 text-mc-text-secondary group-hover:text-mc-accent transition-colors" />
         </div>
 
-        {/* Simple task/agent counts */}
+        {/* Task/agent counts */}
         <div className="flex items-center gap-4 text-sm text-mc-text-secondary mt-4">
           <div className="flex items-center gap-1">
             <CheckSquare className="w-4 h-4" />
@@ -190,49 +150,6 @@ function WorkspaceCard({ workspace, onDelete }: { workspace: WorkspaceStats; onD
         </div>
       </div>
     </Link>
-
-    {/* Delete Confirmation Modal */}
-    {showDeleteConfirm && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowDeleteConfirm(false)}>
-        <div className="bg-mc-bg-secondary border border-mc-border rounded-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-mc-accent-red/20 rounded-full">
-              <AlertTriangle className="w-6 h-6 text-mc-accent-red" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg">Delete Workspace</h3>
-              <p className="text-sm text-mc-text-secondary">This action cannot be undone</p>
-            </div>
-          </div>
-          
-          <p className="text-mc-text-secondary mb-6">
-            Are you sure you want to delete <strong>{workspace.name}</strong>? 
-            {workspace.taskCounts.total > 0 && (
-              <span className="block mt-2 text-mc-accent-red">
-                ⚠️ This workspace has {workspace.taskCounts.total} task(s). Delete them first.
-              </span>
-            )}
-          </p>
-          
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setShowDeleteConfirm(false)}
-              className="px-4 py-2 text-mc-text-secondary hover:text-mc-text"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleDelete}
-              disabled={deleting || workspace.taskCounts.total > 0 || workspace.agentCount > 0}
-              className="px-4 py-2 bg-mc-accent-red text-white rounded-lg font-medium hover:bg-mc-accent-red/90 disabled:opacity-50"
-            >
-              {deleting ? 'Deleting...' : 'Delete Workspace'}
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-    </>
   );
 }
 

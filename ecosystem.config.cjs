@@ -1,14 +1,13 @@
 module.exports = {
   apps: [{
     name: 'mission-control',
-    script: '/opt/homebrew/bin/npx',
+    script: 'npx',
     args: 'next start -p 4000',
-    cwd: '/Users/charlie/projects/mc-security-fix',
+    cwd: '/root/mission-control',
     env: {
       NODE_ENV: 'production',
       PORT: '4000'
     },
-    // PM2 settings
     instances: 1,
     autorestart: true,
     max_restarts: 10,

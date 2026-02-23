@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Zap, Settings, ChevronLeft, LayoutGrid } from 'lucide-react';
+import { Zap, Settings, ChevronLeft, LayoutGrid, Building2 } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import { format } from 'date-fns';
 import type { Workspace } from '@/lib/types';
@@ -14,6 +14,8 @@ interface HeaderProps {
 
 export function Header({ workspace }: HeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const isOfficeView = pathname === '/office';
   const { agents, tasks, isOnline } = useMissionControl();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeSubAgents, setActiveSubAgents] = useState(0);
@@ -59,30 +61,41 @@ export function Header({ workspace }: HeaderProps) {
           </span>
         </div>
 
-        {/* Workspace indicator or back to dashboard */}
-        {workspace ? (
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="flex items-center gap-1 text-mc-text-secondary hover:text-mc-accent transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <LayoutGrid className="w-4 h-4" />
-            </Link>
+        {/* Tab Navigation */}
+        <nav className="flex items-center gap-1 ml-2">
+          <Link
+            href="/"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              !isOfficeView
+                ? 'bg-mc-bg-tertiary text-mc-text border border-mc-border'
+                : 'text-mc-text-secondary hover:text-mc-text hover:bg-mc-bg-tertiary'
+            }`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            Operations
+          </Link>
+          <Link
+            href="/office"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+              isOfficeView
+                ? 'bg-mc-bg-tertiary text-mc-accent-cyan border border-mc-border'
+                : 'text-mc-text-secondary hover:text-mc-text hover:bg-mc-bg-tertiary'
+            }`}
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            The Office
+          </Link>
+        </nav>
+
+        {/* Workspace indicator (only in workspace view) */}
+        {workspace && !isOfficeView && (
+          <div className="flex items-center gap-2 ml-2">
             <span className="text-mc-text-secondary">/</span>
             <div className="flex items-center gap-2 px-3 py-1 bg-mc-bg-tertiary rounded">
               <span className="text-lg">{workspace.icon}</span>
               <span className="font-medium">{workspace.name}</span>
             </div>
           </div>
-        ) : (
-          <Link
-            href="/"
-            className="flex items-center gap-2 px-3 py-1 bg-mc-bg-tertiary rounded hover:bg-mc-bg transition-colors"
-          >
-            <LayoutGrid className="w-4 h-4" />
-            <span className="text-sm">All Workspaces</span>
-          </Link>
         )}
       </div>
 

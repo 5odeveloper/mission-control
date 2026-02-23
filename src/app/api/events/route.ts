@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50', 10);
     const since = searchParams.get('since'); // ISO timestamp for polling
+    const workspaceId = searchParams.get('workspace_id'); // filter by workspace
 
     let sql = `
       SELECT e.*, a.name as agent_name, a.avatar_emoji as agent_emoji, t.title as task_title
@@ -18,6 +19,16 @@ export async function GET(request: NextRequest) {
       WHERE 1=1
     `;
     const params: unknown[] = [];
+
+    if (workspaceId) {
+      // Include events linked to tasks in this workspace, or agent-only events for agents in this workspace
+      sql += ` AND (
+        (e.task_id IS NOT NULL AND t.workspace_id = ?)
+        OR (e.task_id IS NULL AND e.agent_id IN (SELECT id FROM agents WHERE workspace_id = ?))
+        OR (e.task_id IS NULL AND e.agent_id IS NULL)
+      )`;
+      params.push(workspaceId, workspaceId);
+    }
 
     if (since) {
       sql += ' AND e.created_at > ?';
