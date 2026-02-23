@@ -9,12 +9,13 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo   = searchParams.get('from') || '/';
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPw,   setShowPw  ] = useState(false);
-  const [loading,  setLoading ] = useState(false);
-  const [error,    setError   ] = useState('');
-  const [shake,    setShake   ] = useState(false);
+  const [username,    setUsername   ] = useState('');
+  const [password,    setPassword   ] = useState('');
+  const [showPw,      setShowPw     ] = useState(false);
+  const [rememberMe,  setRememberMe ] = useState(true);
+  const [loading,     setLoading    ] = useState(false);
+  const [error,       setError      ] = useState('');
+  const [shake,       setShake      ] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/verify')
@@ -33,7 +34,7 @@ function LoginForm() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, rememberMe }),
       });
 
       if (res.ok) {
@@ -150,6 +151,32 @@ function LoginForm() {
               </button>
             </div>
           </div>
+
+          {/* Remember Me */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+            <div
+              onClick={() => setRememberMe(v => !v)}
+              style={{
+                width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                background: rememberMe ? '#238636' : '#0d1117',
+                border: `1px solid ${rememberMe ? '#2ea043' : '#30363d'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.15s',
+              }}
+            >
+              {rememberMe && (
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                  <path d="M1 4L3.5 6.5L9 1" stroke="#c9d1d9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
+            <span
+              onClick={() => setRememberMe(v => !v)}
+              style={{ fontSize: 13, color: '#8b949e' }}
+            >
+              Remember me for 30 days
+            </span>
+          </label>
 
           {/* Error */}
           {error && (

@@ -6,6 +6,7 @@ import {
   Cpu, HardDrive, MemoryStick, Users, Clock,
   AlertCircle, Building2, FolderOpen, Calendar, Settings,
 } from 'lucide-react';
+import { Header } from '@/components/Header';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function fmtGB(bytes: number) {
@@ -232,9 +233,10 @@ export default function HomePage() {
       background: '#0d1117',
       color: '#c9d1d9',
       fontFamily: 'var(--font-jetbrains-mono, JetBrains Mono, monospace)',
-      padding: '32px 24px',
       boxSizing: 'border-box',
     }}>
+      <Header/>
+    <div style={{ padding: '32px 24px' }}>
       <style>{`
         @keyframes mc-pulse {
           0%, 100% { opacity: 1; }
@@ -345,6 +347,7 @@ export default function HomePage() {
           <NavTile href="/settings"  icon={<Settings   size={24}/>} label="Settings"    color="#f59e0b"/>
         </div>
       </div>
+    </div>
     </div>
   );
 }

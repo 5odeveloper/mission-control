@@ -3,7 +3,7 @@ import { deriveSessionToken, getUICredentials, AUTH_COOKIE, COOKIE_MAX_AGE } fro
 
 export async function POST(request: NextRequest) {
   try {
-    const { username, password } = await request.json();
+    const { username, password, rememberMe = true } = await request.json();
     const creds = getUICredentials();
 
     if (!creds.password) {
@@ -20,11 +20,13 @@ export async function POST(request: NextRequest) {
     const token = await deriveSessionToken(creds.username, creds.password);
 
     const res = NextResponse.json({ ok: true });
+    // rememberMe=true → 30 days; false → session cookie (expires on browser close)
+    const maxAge = rememberMe ? 60 * 60 * 24 * 30 : undefined;
     res.cookies.set(AUTH_COOKIE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: COOKIE_MAX_AGE,
+      ...(maxAge ? { maxAge } : {}),
       path: '/',
     });
     return res;

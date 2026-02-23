@@ -8,6 +8,9 @@ interface AgentStatus {
   status: 'active' | 'idle' | 'error';
   sessionName: string; channel: string; lastActive: string;
   totalTokens: number; sessions: number;
+  currentTask: string;    // e.g. "Subagent: mc-task-office-polish" or "Listening"
+  currentTaskAge: number; // ms since task started
+  isRunning: boolean;     // true if newest session updated < 2 min ago
 }
 
 // ── Config ─────────────────────────────────────────────────────────────────
@@ -62,15 +65,15 @@ const AVATARS: Record<string, () => JSX.Element> = { main: AvatarMaster, '5otrad
 // ── Status Badge ──────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: 'active' | 'idle' | 'error' }) {
   const styles: Record<string, React.CSSProperties> = {
-    active: { background: '#052e16', color: '#4ade80', border: '1px solid #16a34a' },
-    idle:   { background: '#451a03', color: '#fbbf24', border: '1px solid #d97706' },
-    error:  { background: '#450a0a', color: '#f87171', border: '1px solid #dc2626' },
+    active: { background: 'rgba(22,101,52,0.4)',  color: '#4ade80', border: '1px solid #166534' },
+    idle:   { background: 'rgba(120,53,15,0.4)',  color: '#fbbf24', border: '1px solid #78350f' },
+    error:  { background: 'rgba(127,29,29,0.4)',  color: '#f87171', border: '1px solid #7f1d1d' },
   };
   return (
     <span style={{
       ...styles[status],
-      fontSize: 10, fontWeight: 600, padding: '2px 8px',
-      borderRadius: 9999, letterSpacing: 0.5, fontFamily: 'inherit',
+      fontSize: 10, fontWeight: 700, padding: '2px 8px',
+      borderRadius: 10, textTransform: 'uppercase', letterSpacing: 0.5, fontFamily: 'inherit',
       display: 'inline-flex', alignItems: 'center', gap: 4,
     }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }}/>
@@ -205,7 +208,7 @@ function BottomSheet({ agent, open, onClose }: {
         style={{
           position:'fixed', bottom:0, left:0, right:0,
           background:'#161b22',
-          borderTop:`2px solid ${agent.color}`,
+          borderTop:`3px solid ${agent.color}`,
           borderLeft:'1px solid #30363d',
           borderRight:'1px solid #30363d',
           borderRadius:'20px 20px 0 0',
@@ -214,6 +217,7 @@ function BottomSheet({ agent, open, onClose }: {
           overflowY:'auto',
           transform: open ? 'translateY(0)' : 'translateY(100%)',
           willChange:'transform',
+          boxShadow:'0 -8px 32px rgba(0,0,0,0.6)',
         }}
         onClick={e => e.stopPropagation()}
         onTouchStart={onTouchStart}
@@ -242,13 +246,30 @@ function BottomSheet({ agent, open, onClose }: {
             <StatusBadge status={agent.status}/>
           </div>
 
+          {/* Running progress bar */}
+          {agent.isRunning && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ height: 3, background: '#21262d', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', borderRadius: 2,
+                  background: `linear-gradient(90deg, ${agent.color}, ${agent.color}88)`,
+                  animation: 'task-progress 2s ease-in-out infinite',
+                  width: '60%',
+                }}/>
+              </div>
+              <div style={{ fontFamily:"'Press Start 2P',monospace", fontSize: 6, color: '#8b949e', marginTop: 4 }}>⚡ Task in progress · {agent.lastActive}</div>
+            </div>
+          )}
+
           {/* Info rows */}
           {[
-            ['SESSION',  agent.sessionName],
-            ['CHANNEL',  agent.channel],
-            ['LAST SEEN',agent.lastActive],
-            ['MODEL',    'claude-sonnet-4-6'],
-            ['SESSIONS', String(agent.sessions)],
+            ['SESSION',       agent.sessionName],
+            ['CHANNEL',       agent.channel],
+            ['LAST SEEN',     agent.lastActive],
+            ['MODEL',         'claude-sonnet-4-6'],
+            ['SESSIONS',      String(agent.sessions)],
+            ['CURRENT TASK',  agent.currentTask],
+            ['STATUS',        agent.isRunning ? '⚡ Running' : '— Idle'],
           ].map(([k,v]) => (
             <div key={k} style={{
               display:'flex', justifyContent:'space-between', alignItems:'center',
@@ -317,14 +338,14 @@ function AgentCard({ agent, selected, onClick }: { agent: AgentStatus; selected:
   return (
     <div onClick={onClick} style={{
       background:'#161b22',
-      border:`1px solid ${selected ? agent.color : '#30363d'}`,
+      border:'1px solid #30363d',
       borderLeft:`3px solid ${agent.color}`,
-      borderRadius:8, padding:14,
+      borderRadius:10, padding:14,
       cursor:'pointer', transition:'all 0.2s ease',
       boxShadow: selected ? `0 0 0 1px ${agent.color}44, 0 4px 16px rgba(0,0,0,0.4)` : '0 2px 8px rgba(0,0,0,0.2)',
     }}
-    onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLDivElement).style.borderColor = agent.color+'88'; (e.currentTarget as HTMLDivElement).style.boxShadow = `0 4px 16px rgba(0,0,0,0.3)`; }}
-    onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLDivElement).style.borderColor = '#30363d'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)'; }}
+    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 0 0 1px #30363d'; }}
+    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)'; }}
     >
       {/* Header row: avatar + name + badge */}
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
@@ -361,6 +382,29 @@ function AgentCard({ agent, selected, onClick }: { agent: AgentStatus; selected:
         </div>
       </div>
 
+      {/* Current Task */}
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #21262d' }}>
+        <div style={{ fontSize: 6, color: '#8b949e', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 5, fontFamily:"'Press Start 2P',monospace" }}>
+          Current Task
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{
+            width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+            background: agent.isRunning ? '#4ade80' : '#6b7280',
+            boxShadow: agent.isRunning ? '0 0 6px #4ade80' : 'none',
+            animation: agent.isRunning ? 'pulse-dot 1.5s ease-in-out infinite' : 'none',
+          }}/>
+          <span style={{ fontSize: 6, color: '#c9d1d9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily:"'Press Start 2P',monospace" }}>
+            {agent.currentTask}
+          </span>
+        </div>
+        {agent.isRunning && (
+          <div style={{ fontSize: 6, color: '#8b949e', marginTop: 3, fontFamily:"'Press Start 2P',monospace" }}>
+            Running · {agent.lastActive}
+          </div>
+        )}
+      </div>
+
       {/* Cron jobs */}
       {crons && (
         <div style={{ paddingTop:10, borderTop:'1px solid #21262d', fontFamily:"'Press Start 2P',monospace", fontSize:6, color:'#8b949e' }}>
@@ -391,9 +435,9 @@ export function OfficeView() {
   const [conn, setConn]           = useState<'live'|'mock'|'offline'>('offline');
 
   const mock = useCallback((): AgentStatus[] => [
-    { id:'main',         name:'5oMASTER',    emoji:'🧠', color:'#7c3aed', status:'active', sessionName:'grp:5oMaster',  channel:'TELEGRAM', lastActive:'just now', totalTokens:25651,  sessions:1 },
-    { id:'5otrader',    name:'5oTRADER',    emoji:'📈', color:'#059669', status:'active', sessionName:'cron:XAUUSD',   channel:'CRON',     lastActive:'2m ago',   totalTokens:188028, sessions:2 },
-    { id:'5odeveloper', name:'5oDEVELOPER', emoji:'💻', color:'#2563eb', status:'idle',   sessionName:'grp:dev',       channel:'TELEGRAM', lastActive:'5m ago',   totalTokens:144609, sessions:1 },
+    { id:'main',         name:'5oMASTER',    emoji:'🧠', color:'#7c3aed', status:'active', sessionName:'grp:5oMaster',  channel:'TELEGRAM', lastActive:'just now', totalTokens:25651,  sessions:1, currentTask:'Chat: 5oMaster Group',  currentTaskAge:30000,   isRunning:true  },
+    { id:'5otrader',    name:'5oTRADER',    emoji:'📈', color:'#059669', status:'active', sessionName:'cron:XAUUSD',   channel:'CRON',     lastActive:'2m ago',   totalTokens:188028, sessions:2, currentTask:'XAUUSD Scalper',         currentTaskAge:110000,  isRunning:true  },
+    { id:'5odeveloper', name:'5oDEVELOPER', emoji:'💻', color:'#2563eb', status:'idle',   sessionName:'grp:dev',       channel:'TELEGRAM', lastActive:'5m ago',   totalTokens:144609, sessions:1, currentTask:'Listening',              currentTaskAge:300000,  isRunning:false },
   ], []);
 
   const fetch_ = useCallback(async () => {
@@ -401,12 +445,25 @@ export function OfficeView() {
       const r = await fetch('/api/openclaw/sessions');
       if (!r.ok) throw new Error();
       const d = await r.json();
-      const sessions: Array<{ key?:string; updatedAt?:number; totalTokens?:number; kind?:string; displayName?:string; label?:string; channel?:string }> = d.sessions || [];
+      // API returns { sessions: { sessions: [...] } } — extract the inner array
+      const raw = d.sessions;
+      const sessions: Array<{ key?:string; updatedAt?:number; totalTokens?:number; kind?:string; displayName?:string; label?:string; channel?:string }> =
+        Array.isArray(raw) ? raw : (Array.isArray(raw?.sessions) ? raw.sessions : []);
       const now = Date.now();
       setAgents(AGENTS_CONFIG.map(cfg => {
         const ag = sessions.filter(s => s.key?.split(':')[1] === cfg.id);
-        const act = ag.filter(s => (now - (s.updatedAt||0)) < 300000);
+        // Active = updated within last 10 minutes
+        const act = ag.filter(s => (now - (s.updatedAt||0)) < 600000);
         const last = [...ag].sort((a,b) => (b.updatedAt||0)-(a.updatedAt||0))[0];
+        // Derive current task label from the newest session
+        const getTaskLabel = (s: typeof last): string => {
+          if (!s) return 'Listening';
+          if (s.label) return s.label;
+          if (s.kind === 'group') return `Chat: ${(s.displayName||'').replace('telegram:g-','grp:') || s.key?.split(':').slice(2).join(':') || 'group'}`;
+          if (s.kind === 'other') return s.label || s.displayName || 'Task';
+          return 'Session';
+        };
+        const isRunning = last ? (now - (last.updatedAt||0)) < 120000 : false;
         return {
           ...cfg,
           status: (act.length > 0 ? 'active' : 'idle') as 'active'|'idle'|'error',
@@ -415,6 +472,9 @@ export function OfficeView() {
           sessionName: last ? fmtSession(last) : 'none',
           channel: (last?.channel||'UNKNOWN').toUpperCase(),
           sessions: ag.length,
+          currentTask: getTaskLabel(last),
+          currentTaskAge: last ? now - (last.updatedAt||0) : 0,
+          isRunning,
         };
       }));
       setConn('live');
@@ -460,6 +520,14 @@ export function OfficeView() {
         @keyframes ws-float  { 0%,100%{transform:translateY(0) translateX(-16px)} 50%{transform:translateY(-2px) translateX(-16px)} }
         @keyframes ws-shake  { 0%,100%{transform:translateX(-50%)} 25%{transform:translateX(calc(-50% - 2px))} 75%{transform:translateX(calc(-50% + 2px))} }
         @keyframes badge-pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        @keyframes task-progress {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(250%); }
+        }
 
         .av-active { bottom:42px; left:50%; animation:ws-typing 0.4s ease-in-out infinite; }
         .av-idle   { bottom:8px;  left:0;   animation:ws-float  2s    ease-in-out infinite; }
@@ -543,15 +611,24 @@ export function OfficeView() {
           {/* Workstations */}
           <div className="ov-ws-area" style={{ zIndex:3 }}>
             {agents.length > 0 && (<>
-              <div className="ws-master">
+              <div className="ws-master"
+                style={{ transition: 'transform 0.15s, box-shadow 0.15s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.03)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; }}>
                 <Workstation agent={agents[0]} selected={selected===agents[0].id}
                   onClick={() => { setSelected(agents[0].id); openSheet(agents[0]); }}/>
               </div>
-              <div className="ws-trader">
+              <div className="ws-trader"
+                style={{ transition: 'transform 0.15s, box-shadow 0.15s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.03)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; }}>
                 <Workstation agent={agents[1]} selected={selected===agents[1].id}
                   onClick={() => { setSelected(agents[1].id); openSheet(agents[1]); }}/>
               </div>
-              <div className="ws-dev">
+              <div className="ws-dev"
+                style={{ transition: 'transform 0.15s, box-shadow 0.15s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.03)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; }}>
                 <Workstation agent={agents[2]} selected={selected===agents[2].id}
                   onClick={() => { setSelected(agents[2].id); openSheet(agents[2]); }}/>
               </div>
